@@ -326,18 +326,21 @@ void initGrabberMethod()
 void printUsage(char **argv)
 {
 	L("\nandroidvncserver [parameters]\n"
-	  "-f <device>\t- Framebuffer device (only with -m fb, default is /dev/graphics/fb0)\n"
-	  "-h\t\t- Print this help\n"
-	  "-m <method>\t- Display grabber method\n\tfb: framebuffer\n\tgb: gingerbread+ devices\n\tadb: slower, but should be compatible with all devices\n"
-	  "-p <password>\t- Password to access server\n"
-	  "-r <rotation>\t- Screen rotation (degrees) (0,90,180,270)\n"
-	  "-R <host:port>\t- Host for reverse connection\n"
-	  "-s <scale>\t- Scale percentage (20,30,50,100,150)\n"
-	  "-z\t- Rotate display 180º (for zte compatibility)\n\n");
+	  "-f <device>     - Framebuffer device (only with -m fb, default is /dev/graphics/fb0)\n"
+	  "-h              - Print this help\n"
+	  "-m <method>     - Display grabber method (adb, fb, gralloc, flinger)\n"
+	  "-p <password>   - Password to access server\n"
+	  "-P <VNC port>   - port the server should listen on for VNC connections\n"
+	  "-r <rotation>   - Screen rotation (degrees) (0,90,180,270)\n"
+	  "-R <host:port>  - Host for reverse connection\n"
+	  "-s <scale>      - Scale percentage (20,30,50,100,150)\n"
+	  "-z              - Rotate display 180º (for zte compatibility)\n\n");
 }
 
 
 #include <time.h>
+
+#define OPTSTRING	"hp:f:zP:r:s:R:m:"
 
 int main(int argc, char **argv)
 {
@@ -347,76 +350,67 @@ int main(int argc, char **argv)
 	signal(SIGILL, close_app);
 	long usec;
 
-	if(argc > 1) {
-		int i=1;
-		int r;
-		while(i < argc) {
-			if(*argv[i] == '-') {
-				switch(*(argv[i] + 1)) {
-				case 'h':
-					printUsage(argv);
-					exit(0);
-					break;
-				case 'p':
-					i++;
-					if(strlen(argv[i]) > MAX_PW_LEN)
-						return 1;
+	int opt, r;
+	while((opt = getopt(argc, argv, OPTSTRING)) != -1){
+		switch(opt) {
+		case 'p':
+			if(strlen(optarg) > MAX_PW_LEN)
+				return 1;
 
-					strcpy(VNC_PASSWORD,argv[i]);
-					break;
-				case 'f':
-					i++;
-					FB_setDevice(argv[i]);
-					break;
-				case 'z':
-					i++;
-					display_rotate_180=1;
-					break;
-				case 'P':
-					i++;
-					VNC_PORT=atoi(argv[i]);
-					break;
-				case 'r':
-					i++;
-					r = atoi(argv[i]);
-					if (r==0 || r==90 || r==180 || r==270)
-						rotation = r;
-					L("rotating to %d degrees\n",rotation);
-					break;
-				case 's':
-					i++;
-					r=atoi(argv[i]);
-					if (r >= 1 && r <= 150)
-						scaling = r;
-					else
-						scaling = 100;
-					L("scaling to %d%%\n",scaling);
-					break;
-				case 'R':
-					i++;
-					extractReverseHostPort(argv[i]);
-					break;
-				case 'm':
-					i++;
-					if (!strcmp(argv[i],"adb")) {
-						method = ADB;
-						L("ADB display grabber selected\n");
-					} else if (!strcmp(argv[i],"fb")) {
-						method = FRAMEBUFFER;
-						L("Framebuffer display grabber selected\n");
-					} else if (!strcmp(argv[i],"gralloc")) {
-						method = GRALLOC;
-						L("Gralloc display grabber selected\n");
-					} else if (!strcmp(argv[i],"flinger")) {
-						method = FLINGER;
-						L("Flinger display grabber selected\n");
-					} else {
-						L("Grab method \"%s\" not found, sticking with auto-detection.\n",argv[i]);
-					}
-					break;
-				}
+			strcpy(VNC_PASSWORD,optarg);
+			break;
+		case 'f':
+			FB_setDevice(optarg);
+			break;
+		case 'z':
+			display_rotate_180=1;
+			break;
+		case 'P':
+			VNC_PORT=atoi(optarg);
+			break;
+		case 'r':
+			r = atoi(optarg);
+			if (r==0 || r==90 || r==180 || r==270){
+				rotation = r;
+				L("rotating to %d degrees\n",rotation);
 			}
-			i++;
+			break;
+		case 's':
+			r = atoi(optarg);
+			if (r >= 1 && r <= 150)
+				scaling = r;
+			else
+				scaling = 100;
+			L("scaling to %d%%\n",scaling);
+			break;
+		case 'R':
+			extractReverseHostPort(optarg);
+			break;
+		case 'm':
+			if (strcmp(optarg,"adb") == 0) {
+				method = ADB;
+				L("ADB display grabber selected\n");
+			} else if (strcmp(optarg,"fb") == 0) {
+				method = FRAMEBUFFER;
+				L("Framebuffer display grabber selected\n");
+			} else if (strcmp(optarg,"gralloc") == 0) {
+				method = GRALLOC;
+				L("Gralloc display grabber selected\n");
+			} else if (strcmp(optarg,"flinger") == 0) {
+				method = FLINGER;
+				L("Flinger display grabber selected\n");
+			} else {
+				L("Grab method \"%s\" not found, sticking with auto-detection.\n",optarg);
+			}
+			break;
+		case 'h':
+			printUsage(argv);
+			exit(0);
+			break;
+		default:
+			printUsage(argv);
+			exit(1);
+			break;
 		}
 	}
 
