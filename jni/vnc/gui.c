@@ -34,93 +34,90 @@ static int nHostPort;
 
 int sendMsgToGui(char *buffer)
 {
-  int sock, n;
-  unsigned int length;
-  struct sockaddr_in server;
+	int sock, n;
+	socklen_t length;
+	struct sockaddr_in server;
 
-  sock = socket(AF_INET, SOCK_DGRAM, 0);
-  if (sock < 0) perror("socket");
+	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock < 0) perror("socket");
 
-  bzero(&server,sizeof(server));
-  server.sin_family = AF_INET;
-  server.sin_addr.s_addr = inet_addr("127.0.0.1");
-  server.sin_port = htons(DEFAULT_IPC_RECV_PORT);
-  length = sizeof(struct sockaddr_in);
+	bzero(&server,sizeof(server));
+	server.sin_family = AF_INET;
+	server.sin_addr.s_addr = inet_addr("127.0.0.1");
+	server.sin_port = htons(DEFAULT_IPC_RECV_PORT);
+	length = sizeof(struct sockaddr_in);
 
-  n = sendto(sock,buffer,strlen(buffer),0,(struct sockaddr *)&server,length);
-  if (n < 0) perror("Sendto");
+	n = sendto(sock,buffer,strlen(buffer),0,(struct sockaddr *)&server,length);
+	if (n < 0) perror("Sendto");
 
-  close(sock);
-  return 0;
-}  
+	close(sock);
+	return 0;
+}
 
 int bindIPCserver()
 {
-  nHostPort=DEFAULT_IPC_SEND_PORT;
+	nHostPort=DEFAULT_IPC_SEND_PORT;
 
-  L("Starting IPC connection...");
+	L("Starting IPC connection...");
 
-  /* make a socket */
-  hServerSocket=socket(AF_INET,SOCK_DGRAM,0);
+	/* make a socket */
+	hServerSocket=socket(AF_INET,SOCK_DGRAM,0);
 
-  if(hServerSocket == SOCKET_ERROR) {
-    L("Error creating socket\n");
-    return 0;
-  }
+	if(hServerSocket == SOCKET_ERROR) {
+		L("Error creating socket\n");
+		return 0;
+	}
 
-  /* fill address struct */
-  Address.sin_addr.s_addr=INADDR_ANY;
-  Address.sin_port=htons(nHostPort);
-  Address.sin_family=AF_INET;
-
-
-  /* bind to a port */
-  if(bind(hServerSocket,(struct sockaddr*)&Address,sizeof(Address)) == SOCKET_ERROR)
-  {
-    L("\nCould not connect to IPC gui, another daemon already running?\n");
-    sendMsgToGui("~SHOW|Could not connect to IPC gui, another daemon already running?\n");
-
-    exit(-1);
-  }
+	/* fill address struct */
+	Address.sin_addr.s_addr=INADDR_ANY;
+	Address.sin_port=htons(nHostPort);
+	Address.sin_family=AF_INET;
 
 
-  L("binded to port %d\n",nHostPort);
+	/* bind to a port */
+	if(bind(hServerSocket,(struct sockaddr*)&Address,sizeof(Address)) != 0) {
+		L("\nCould not connect to IPC gui, another daemon already running?\n");
+		sendMsgToGui("~SHOW|Could not connect to IPC gui, another daemon already running?\n");
 
-  pthread_t thread;
-  pthread_create( &thread,NULL,handle_connections,NULL);
+		exit(-1);
+	}
 
-  return 1;
+
+	L("binded to port %d\n",nHostPort);
+
+	pthread_t thread;
+	pthread_create( &thread,NULL,handle_connections,NULL);
+
+	return 1;
 }
 
 
 
 void *handle_connections()
 {
-  L("\nWaiting for a connection\n");
-  struct sockaddr_in from;
-  int fromlen = sizeof(struct sockaddr_in);
-  int n;
+	L("\nWaiting for a connection\n");
+	struct sockaddr_in from;
+	socklen_t fromlen = sizeof(struct sockaddr_in);
+	int n;
 
-  while (1) {
-    n = recvfrom(hServerSocket,pBuffer,BUFFER_SIZE,0,(struct sockaddr *)&from,&fromlen);
-    if (n < 0) perror("recvfrom");
+	while (1) {
+		n = recvfrom(hServerSocket,pBuffer,BUFFER_SIZE,0,(struct sockaddr *)&from,&fromlen);
+		if (n < 0) perror("recvfrom");
 
-    //L("Recebido: %s\n",pBuffer);
+		//L("Recebido: %s\n",pBuffer);
 
-    if (strstr(pBuffer,"~PING|")!=NULL)
-    {
-      char *resp="~PONG|";
-      n = sendto(hServerSocket,resp,strlen(resp),
-                 0,(struct sockaddr *)&from,fromlen);
-      if (n  < 0) perror("sendto");
-    }
-    else if (strstr(pBuffer,"~KILL|")!=NULL)
-    close_app();
-  }
+		if (strstr(pBuffer,"~PING|")!=NULL) {
+			const char resp[] ="~PONG|";
+			n = sendto(hServerSocket,resp,strlen(resp),
+				   0,(struct sockaddr *)&from,fromlen);
+			if (n  < 0) perror("sendto");
+		} else if (strstr(pBuffer,"~KILL|")!=NULL)
+			close_app();
+	}
 }
 
 
 void unbindIPCserver()
 {
-  close(hServerSocket);
+	close(hServerSocket);
 }

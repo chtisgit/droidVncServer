@@ -33,6 +33,7 @@
 
 #include <byteswap.h>
 #include <string.h>
+#include <unistd.h>
 #include "rfbconfig.h"
 #include "rfbssl.h"
 #include "rfbcrypto.h"

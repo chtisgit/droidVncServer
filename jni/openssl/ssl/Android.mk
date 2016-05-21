@@ -43,7 +43,7 @@ local_src_files:= \
 	ssl_algs.c \
 	bio_ssl.c \
 	ssl_err.c \
-	kssl.c
+	kssl.c 
 
 #######################################
 # target static library
@@ -58,6 +58,7 @@ LOCAL_SRC_FILES += $(local_src_files)
 LOCAL_C_INCLUDES += $(local_c_includes)
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE:= libssl_static
+LOCAL_CFLAGS:=-fPIE -pie -DOPENSSL_NO_CAMELLIA -DOPENSSL_NO_ENGINE -DOPENSSL_NO_HEARTBEATS
 include $(BUILD_STATIC_LIBRARY)
 
 #######################################

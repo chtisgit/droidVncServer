@@ -38,6 +38,7 @@
 #include <jerror.h>
 #include <setjmp.h>
 #include "./turbojpeg.h"
+#include "../../../jpeg/jpeglib.h"
 
 #define PAD(v, p) ((v+(p)-1)&(~((p)-1)))
 

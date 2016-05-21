@@ -22,7 +22,7 @@ common_SRC_FILES := \
 
 
 
-common_CFLAGS := -fvisibility=hidden ## -fomit-frame-pointer
+common_CFLAGS := -fPIE -pie -fvisibility=hidden ## -fomit-frame-pointer
 
 ifeq ($(HOST_OS),windows)
   ifeq ($(USE_MINGW),)

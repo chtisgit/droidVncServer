@@ -489,7 +489,7 @@ LOCAL_SDK_VERSION := 9
 endif
 
 LOCAL_SRC_FILES += $(local_src_files)
-LOCAL_CFLAGS += $(local_c_flags)
+LOCAL_CFLAGS += $(local_c_flags) -fPIE -pie -DOPENSSL_NO_CAMELLIA
 LOCAL_C_INCLUDES += $(local_c_includes)
 ifeq ($(TARGET_ARCH),arm)
 	LOCAL_SRC_FILES += $(arm_src_files)
