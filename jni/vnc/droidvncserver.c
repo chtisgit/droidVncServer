@@ -78,6 +78,12 @@ enum method_type method=AUTO;
 #include "updateScreen.c"
 #undef OUT
 
+inline void out_of_memory()
+{
+	L("fatal error: out of memory!");
+	close_app();
+}
+
 inline int getCurrentRotation()
 {
 	return rotation;
@@ -106,6 +112,9 @@ rfbNewClientHookPtr clientHook(rfbClientPtr cl)
 
 	char *header="~CONNECTED|";
 	char *msg=malloc(sizeof(char)*((strlen(cl->host)) + strlen(header)+2));
+	if(msg == NULL)
+		out_of_memory();
+
 	msg[0]='\0';
 	strcat(msg,header);
 	strcat(msg,cl->host);
@@ -122,6 +131,9 @@ void CutText(char* str,int len, struct _rfbClientRec* cl)
 	str[len]='\0';
 	char *header="~CLIP|\n";
 	char *msg=malloc(sizeof(char)*(strlen(str) + strlen(header)+2));
+	if(msg == NULL)
+		out_of_memory();
+
 	msg[0]='\0';
 	strcat(msg,header);
 	strcat(msg,str);
@@ -166,6 +178,9 @@ void initVncServer(int argc, char **argv)
 
 	if (strcmp(VNC_PASSWORD,"")!=0) {
 		char **passwords = (char **)malloc(2 * sizeof(char **));
+		if(passwords == NULL)
+			out_of_memory();
+
 		passwords[0] = VNC_PASSWORD;
 		passwords[1] = NULL;
 		vncscr->authPasswdData = passwords;
@@ -251,14 +266,15 @@ void rotate(int value)
 void close_app()
 {
 	L("Cleaning up...\n");
-	if (method == FRAMEBUFFER)
+	if (method == FRAMEBUFFER){
 		closeFB();
-	else if (method == ADB)
+	}else if (method == ADB){
 		closeADB();
-	else if (method == GRALLOC)
+	}else if (method == GRALLOC){
 		closeGralloc();
-	else if (method == FLINGER)
+	}else if (method == FLINGER){
 		closeFlinger();
+	}
 
 	cleanupInput();
 	sendServerStopped();
@@ -266,42 +282,44 @@ void close_app()
 	exit(0); /* normal exit status */
 }
 
-
-void extractReverseHostPort(char *str)
+/* returns 0 on failure */
+int extractReverseHostPort(char *str)
 {
 	int len = strlen(str);
-	char *p;
+
 	/* copy in to host */
 	rhost = (char *) malloc(len+1);
-	if (! rhost) {
-		L("reverse_connect: could not malloc string %d\n", len);
-		exit(-1);
-	}
+	if (rhost == NULL)
+		out_of_memory();
+
 	strncpy(rhost, str, len);
 	rhost[len] = '\0';
 
 	/* extract port, if any */
-	if ((p = strrchr(rhost, ':')) != NULL) {
+	char *p = strrchr(rhost, ':');
+	if (p != NULL) {
 		rport = atoi(p+1);
-		if (rport < 0) {
-			rport = -rport;
-		} else if (rport < 20) {
-			rport = 5500 + rport;
+		if (rport < 1 || rport > 65535) {
+			return 0;
 		}
 		*p = '\0';
 	}
+	return 1;
 }
 
-void initGrabberMethod()
+/* returns 0 on failure */
+int initGrabberMethod()
 {
 	if (method == AUTO) {
 		L("No grabber method selected, auto-detecting...\n");
-		if (initFlinger() != -1)
+		if (initFlinger() != -1){
 			method = FLINGER;
-		else if (initGralloc()!=-1)
+		}else if (initGralloc()!=-1){
 			method = GRALLOC;
-		else if (initFB() != -1) {
+		}else if (initFB() != -1) {
 			method = FRAMEBUFFER;
+		}else{
+			return 0;
 		}
 #if 0
 		else if (initADB() != -1) {
@@ -309,18 +327,29 @@ void initGrabberMethod()
 			readBufferADB();
 		}
 #endif
-	} else if (method == FRAMEBUFFER)
-		initFB();
+	} else if (method == FRAMEBUFFER){
+		if(initFB() == -1){
+			L("Error initializing framebuffer!\n");
+			return 0;
+		}
 #if 0
-	else if (method == ADB) {
+	}else if (method == ADB) {
 		initADB();
 		readBufferADB();
-	}
 #endif
-	else if (method == GRALLOC)
-		initGralloc();
-	else if (method == FLINGER)
-		initFlinger();
+	}else if (method == GRALLOC){
+		if(initGralloc() == -1){
+			L("Error initializing gralloc!\n");
+			return 0;
+		}
+	}else if (method == FLINGER){
+		if(initFlinger() == -1){
+			L("Error initializing flinger!\n");
+			return 0;
+		}
+	}
+
+	return 1;
 }
 
 void printUsage(char **argv)
@@ -384,7 +413,12 @@ int main(int argc, char **argv)
 			L("scaling to %d%%\n",scaling);
 			break;
 		case 'R':
-			extractReverseHostPort(optarg);
+			if(extractReverseHostPort(optarg) == 0){
+				L("reverse host port out of range!\n");
+				/* this is currently the only reason for extract...
+				   to return zero */
+				return 1;
+			}
 			break;
 		case 'm':
 			if (strcmp(optarg,"adb") == 0) {
@@ -435,16 +469,14 @@ int main(int argc, char **argv)
 	bindIPCserver();
 	sendServerStarted();
 
-	if (rhost) {
+	if (rhost != NULL) {
 		rfbClientPtr cl;
 		cl = rfbReverseConnection(vncscr, rhost, rport);
 		if (cl == NULL) {
-			char *str=malloc(255*sizeof(char));
-			sprintf(str,"~SHOW|Couldn't connect to remote host:\n%s\n",rhost);
-
+			char str[255];
+			snprintf(str, 255, "~SHOW|Couldn't connect to remote host:\n%s\n",rhost);
 			L("Couldn't connect to remote host: %s\n",rhost);
 			sendMsgToGui(str);
-			free(str);
 		} else {
 			cl->onHold = FALSE;
 			rfbStartOnHoldClient(cl);
