@@ -11,7 +11,7 @@ LIBVNCSERVER_SRC_FILES:= \
 	$(LIBVNCSERVER_ROOT)/libvncserver/sockets.c \
 	$(LIBVNCSERVER_ROOT)/libvncserver/stats.c \
 	$(LIBVNCSERVER_ROOT)/libvncserver/corre.c \
-	$(LIBVNCSERVER_ROOT)/libvncserver/rfbssl_openssl.c \
+	$(LIBVNCSERVER_ROOT)/libvncserver/rfbssl_none.c \
 	$(LIBVNCSERVER_ROOT)/libvncserver/rfbcrypto_openssl.c \
 	$(LIBVNCSERVER_ROOT)/libvncserver/hextile.c \
 	$(LIBVNCSERVER_ROOT)/libvncserver/rre.c \
@@ -72,7 +72,7 @@ LOCAL_C_INCLUDES += \
 										$(LOCAL_PATH)/$(LIBVNCSERVER_ROOT)/ \
 										$(LOCAL_PATH)/../../nativeMethods/
 
-LOCAL_STATIC_LIBRARIES := libjpeg libpng libssl_static libcrypto_static
+LOCAL_STATIC_LIBRARIES := libjpeg libpng libcrypto_static
 
 LOCAL_MODULE := androidvncserver
 
