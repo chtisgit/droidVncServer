@@ -20,20 +20,26 @@ License along with this library; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
+#include <assert.h>
 #include "framebuffer.h"
 #include "gui.h"
 
 int fbfd = -1;
-unsigned int *fbmmap;
+unsigned int *fbmmap = MAP_FAILED;
+size_t fbsize;
 
-char framebuffer_device[256] = "/dev/graphics/fb0";
+#define FB_DEV_STR_MAX	256
+
+char framebuffer_device[FB_DEV_STR_MAX] = "/dev/graphics/fb0";
 
 struct fb_var_screeninfo scrinfo;
 struct fb_fix_screeninfo fscrinfo;
 
 void FB_setDevice(char *s)
 {
-	strcpy(framebuffer_device,s);
+	assert(s != NULL);
+	strncpy(framebuffer_device,s,FB_DEV_STR_MAX-1);
+	framebuffer_device[FB_DEV_STR_MAX-1] = '\0';
 }
 
 void update_fb_info(void)
@@ -54,16 +60,17 @@ int initFB(void)
 {
 	L("--Initializing framebuffer access method--\n");
 
-	fbmmap = MAP_FAILED;
-
-	if ((fbfd = open(framebuffer_device, O_RDWR)) == -1) {
+	assert(fbmmap == MAP_FAILED);
+	assert(fbfd == -1);
+	
+	fbfd = open(framebuffer_device, O_RDWR);
+	if (fbfd == -1) {
 		L("Cannot open fb device %s\n", framebuffer_device);
 		sendMsgToGui("~SHOW|Cannot open fb device, please try out other display grab method\n");
 		return -1;
 	}
 
 	update_fb_info();
-
 
 	if (ioctl(fbfd, FBIOGET_FSCREENINFO, &fscrinfo) != 0) {
 		L("ioctl error\n");
@@ -87,9 +94,10 @@ int initFB(void)
 		L("24-bit XRGB display detected\n");
 	}
 
-	size_t fbSize = roundUpToPageSize(fscrinfo.line_length * size);
+	//fbsize = roundUpToPageSize(fscrinfo.line_length * size);
+	fbsize = fscrinfo.line_length * size;
 
-	fbmmap = mmap(NULL, fbSize , PROT_READ|PROT_WRITE ,  MAP_SHARED , fbfd, 0);
+	fbmmap = mmap(NULL, fbsize , PROT_READ|PROT_WRITE ,  MAP_SHARED , fbfd, 0);
 
 	if (fbmmap == MAP_FAILED) {
 		L("mmap failed\n");
@@ -115,8 +123,14 @@ int initFB(void)
 
 void closeFB(void)
 {
-	if(fbfd != -1)
+	if(fbfd != -1){
 		close(fbfd);
+		fbfd = -1;
+		if(fbmmap != MAP_FAILED){
+			munmap(fbmmap, fbsize);
+			fbmmap = MAP_FAILED;
+		}
+	}
 }
 
 struct fb_var_screeninfo FB_getscrinfo(void)
